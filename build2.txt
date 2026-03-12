@@ -1,0 +1,123 @@
+﻿Running Gradle task 'assembleRelease'...                        
+flutter : warning: [options] source value 8 is obsolete 
+and will be removed in a future release
+At line:1 char:1
++ flutter build apk 2>&1 | Out-File -Encoding utf8 
+d:\Hackathons\uai\v1 ...
++ ~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (warning: [opt 
+   io... future release:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+warning: [options] target value 8 is obsolete and will be 
+removed in a future release
+warning: [options] To suppress warnings about obsolete 
+options, use -Xlint:-options.
+3 warnings
+warning: [options] source value 8 is obsolete and will be 
+removed in a future release
+warning: [options] target value 8 is obsolete and will be 
+removed in a future release
+warning: [options] To suppress warnings about obsolete 
+options, use -Xlint:-options.
+3 warnings
+Font asset "CupertinoIcons.ttf" was tree-shaken, reducing it from 257628 to 848 bytes (99.7% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+Font asset "MaterialIcons-Regular.otf" was tree-shaken, reducing it from 1645184 to 18988 bytes (98.8% reduction). Tree-shaking can be disabled by providing the --no-tree-shake-icons flag when building your app.
+warning: [options] source value 8 is obsolete and will be 
+removed in a future release
+warning: [options] target value 8 is obsolete and will be 
+removed in a future release
+warning: [options] To suppress warnings about obsolete 
+options, use -Xlint:-options.
+3 warnings
+warning: [options] source value 8 is obsolete and will be 
+removed in a future release
+warning: [options] target value 8 is obsolete and will be 
+removed in a future release
+warning: [options] To suppress warnings about obsolete 
+options, use -Xlint:-options.
+3 warnings
+warning: [options] source value 8 is obsolete and will be 
+removed in a future release
+warning: [options] target value 8 is obsolete and will be 
+removed in a future release
+warning: [options] To suppress warnings about obsolete 
+options, use -Xlint:-options.
+3 warnings
+warning: [options] source value 8 is obsolete and will be 
+removed in a future release
+warning: [options] target value 8 is obsolete and will be 
+removed in a future release
+warning: [options] To suppress warnings about obsolete 
+options, use -Xlint:-options.
+3 warnings
+warning: [options] source value 8 is obsolete and will be 
+removed in a future release
+warning: [options] target value 8 is obsolete and will be 
+removed in a future release
+warning: [options] To suppress warnings about obsolete 
+options, use -Xlint:-options.
+3 warnings
+warning: [options] source value 8 is obsolete and will be 
+removed in a future release
+warning: [options] target value 8 is obsolete and will be 
+removed in a future release
+warning: [options] To suppress warnings about obsolete 
+options, use -Xlint:-options.
+3 warnings
+e: file:///C:/Users/sharm/AppData/Local/Pub/Cache/hosted/pu
+b.dev/workmanager-0.5.2/android/src/main/kotlin/dev/flutter
+community/workmanager/BackgroundWorker.kt:14:44 Unresolved 
+reference 'shim'.
+e: file:///C:/Users/sharm/AppData/Local/Pub/Cache/hosted/pu
+b.dev/workmanager-0.5.2/android/src/main/kotlin/dev/flutter
+community/workmanager/BackgroundWorker.kt:98:55 Unresolved 
+reference 'registerWith'.
+e: file:///C:/Users/sharm/AppData/Local/Pub/Cache/hosted/pu
+b.dev/workmanager-0.5.2/android/src/main/kotlin/dev/flutter
+community/workmanager/BackgroundWorker.kt:98:68 Unresolved 
+reference 'ShimPluginRegistry'.
+e: file:///C:/Users/sharm/AppData/Local/Pub/Cache/hosted/pu
+b.dev/workmanager-0.5.2/android/src/main/kotlin/dev/flutter
+community/workmanager/WorkmanagerPlugin.kt:35:52 
+Unresolved reference 'PluginRegistrantCallback'.
+e: file:///C:/Users/sharm/AppData/Local/Pub/Cache/hosted/pu
+b.dev/workmanager-0.5.2/android/src/main/kotlin/dev/flutter
+community/workmanager/WorkmanagerPlugin.kt:38:52 
+Unresolved reference 'Registrar'.
+e: file:///C:/Users/sharm/AppData/Local/Pub/Cache/hosted/pu
+b.dev/workmanager-0.5.2/android/src/main/kotlin/dev/flutter
+community/workmanager/WorkmanagerPlugin.kt:40:49 
+Unresolved reference 'context'.
+e: file:///C:/Users/sharm/AppData/Local/Pub/Cache/hosted/pu
+b.dev/workmanager-0.5.2/android/src/main/kotlin/dev/flutter
+community/workmanager/WorkmanagerPlugin.kt:40:70 
+Unresolved reference 'messenger'.
+e: file:///C:/Users/sharm/AppData/Local/Pub/Cache/hosted/pu
+b.dev/workmanager-0.5.2/android/src/main/kotlin/dev/flutter
+community/workmanager/WorkmanagerPlugin.kt:41:23 
+Unresolved reference 'addViewDestroyListener'.
+e: file:///C:/Users/sharm/AppData/Local/Pub/Cache/hosted/pu
+b.dev/workmanager-0.5.2/android/src/main/kotlin/dev/flutter
+community/workmanager/WorkmanagerPlugin.kt:49:80 
+Unresolved reference 'PluginRegistrantCallback'.
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task 
+':workmanager:compileReleaseKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.c
+ompilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinC
+ompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 1m 30s
+Running Gradle task 'assembleRelease'...                           91.4s
+Gradle task assembleRelease failed with exit code 1

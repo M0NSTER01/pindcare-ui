@@ -1,0 +1,31 @@
+﻿Analyzing pindcare...                                           
+
+   info - Unnecessary braces in a string interpolation - lib\data\services\medicine_service.dart:82:18 - unnecessary_brace_in_string_interps
+warning - Unused import: '../../shared/widgets/gradient_button.dart' - lib\features\ai_scan\share_with_doctor_sheet.dart:8:8 - unused_import
+   info - The import of 'package:flutter/services.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' - lib\features\chat\chat_screens.dart:2:8 - unnecessary_import
+warning - Unused import: 'package:go_router/go_router.dart' - lib\features\consultation\consultation_screen.dart:4:8 - unused_import
+   info - The import of 'package:flutter/services.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' - lib\features\doctor\abdm_patient_history_screen.dart:2:8 - unnecessary_import
+warning - Unused import: 'package:go_router/go_router.dart' - lib\features\doctor\doctor_appointments_screen.dart:4:8 - unused_import
+warning - Unused import: 'package:go_router/go_router.dart' - lib\features\doctor\doctor_dashboard_screen.dart:5:8 - unused_import
+   info - The import of 'package:flutter/services.dart' is unnecessary because all of the used elements are also provided by the import of 'package:flutter/material.dart' - lib\features\doctor\doctor_patients_screen.dart:2:8 - unnecessary_import
+   info - 'activeColor' is deprecated and shouldn't be used. Use activeThumbColor instead. This feature was deprecated after v3.31.0-2.0.pre - lib\features\doctor\doctor_profile_screen.dart:137:7 - deprecated_member_use
+   info - The private field _currentLocation could be 'final' - lib\features\medicines\medicines_screen.dart:17:10 - prefer_final_fields
+   info - The private field _callConnected could be 'final' - lib\features\video_call\video_call_screen.dart:17:8 - prefer_final_fields
+warning - The value of the field '_callConnected' isn't used - lib\features\video_call\video_call_screen.dart:17:8 - unused_field
+warning - Unused import: 'package:hive_flutter/hive_flutter.dart' - lib\main.dart:4:8 - unused_import
+warning - Unused import: '../../data/models/family_member_model.dart' - lib\shared\widgets\family_switcher_widget.dart:6:8 - unused_import
+warning - Unused import: 'package:flutter_animate/flutter_animate.dart' - lib\shared\widgets\main_shell.dart:3:8 - unused_import
+warning - Unused import: '../../features/home/home_screen.dart' - lib\shared\widgets\main_shell.dart:7:8 - unused_import
+warning - Unused import: '../../features/health_records/health_records_screen.dart' - lib\shared\widgets\main_shell.dart:8:8 - unused_import
+warning - Unused import: '../../features/medicines/medicines_screen.dart' - lib\shared\widgets\main_shell.dart:9:8 - unused_import
+warning - Unused import: '../../features/profile/profile_screen.dart' - lib\shared\widgets\main_shell.dart:10:8 - unused_import
+
+flutter : 19 issues found. (ran in 20.1s)
+At line:1 char:1
++ flutter analyze --no-fatal-infos --no-fatal-warnings 
+2>&1 | Out-File  ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (19 issues fou 
+   nd. (ran in 20.1s):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

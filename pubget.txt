@@ -1,0 +1,44 @@
+﻿Resolving dependencies...
+Downloading packages...
+  audio_session 0.1.25 (0.2.2 available)
+  camera 0.11.4 (0.12.0 available)
+  camera_android_camerax 0.6.30 (0.7.1 available)
+  camera_avfoundation 0.9.23+2 (0.10.1 available)
+  connectivity_plus 6.1.5 (7.0.0 available)
+  file_picker 8.3.7 (10.3.10 available)
+  flutter_map 6.2.1 (8.2.2 available)
+  flutter_riverpod 2.6.1 (3.3.1 available)
+  flutter_secure_storage 9.2.4 (10.0.0 available)
+  flutter_secure_storage_linux 1.2.3 (3.0.0 available)
+  flutter_secure_storage_macos 3.1.3 (4.0.0 available)
+  flutter_secure_storage_platform_interface 1.1.2 (2.0.1 available)
+  flutter_secure_storage_web 1.2.1 (2.1.0 available)
+  flutter_secure_storage_windows 3.1.2 (4.1.0 available)
+  geolocator 11.1.0 (14.0.2 available)
+  geolocator_android 4.6.2 (5.0.2 available)
+  geolocator_web 3.0.0 (4.1.3 available)
+  go_router 14.8.1 (17.1.0 available)
+  google_fonts 6.3.3 (8.0.2 available)
+  js 0.6.7 (0.7.2 available)
+  just_audio 0.9.46 (0.10.5 available)
+  meta 1.17.0 (1.18.1 available)
+  mgrs_dart 2.0.0 (3.0.0 available)
+  mobile_scanner 5.2.3 (7.2.0 available)
+  permission_handler 11.4.0 (12.0.1 available)
+  permission_handler_android 12.1.0 (13.0.1 available)
+  proj4dart 2.1.0 (3.0.0 available)
+> record 6.2.0 (was 5.2.1)
++ record_ios 1.2.0
+> record_linux 1.3.0 (was 0.7.2)
++ record_macos 1.2.1
+  riverpod 2.6.1 (3.2.1 available)
+  share_plus 10.1.4 (12.0.1 available)
+  share_plus_platform_interface 5.0.2 (6.1.0 available)
+  unicode 0.3.1 (1.1.9 available)
+  win32 5.15.0 (6.0.0 available)
+  workmanager 0.5.2 (0.9.0+3 available)
+These packages are no longer being depended on:
+- record_darwin 1.2.2
+Changed 5 dependencies!
+33 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
