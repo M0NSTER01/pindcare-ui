@@ -1,4 +1,3 @@
-class ConsultationModel {
   final String id;
   final String doctorName;
   final String doctorSpecialization;
@@ -7,11 +6,15 @@ class ConsultationModel {
   final List<String> doctorLanguages;
   final DateTime dateTime;
   final String type; // video, audio, chat
-  final String status; // upcoming, completed, cancelled
+  final String status; // upcoming, completed, cancelled, pending, active
   final String? symptoms;
   final String? notes;
   final bool isOnline;
   final String syncStatus;
+  // Backend fields
+  final String? scanId;    // AI triage scan linked to this consultation
+  final String? doctorId;  // backend doctor UUID
+  final String? patientId; // backend patient UUID
 
   ConsultationModel({
     required this.id,
@@ -27,6 +30,9 @@ class ConsultationModel {
     this.notes,
     this.isOnline = true,
     this.syncStatus = 'synced',
+    this.scanId,
+    this.doctorId,
+    this.patientId,
   });
 
   Map<String, dynamic> toMap() => {
@@ -43,21 +49,27 @@ class ConsultationModel {
     'notes': notes,
     'isOnline': isOnline,
     'syncStatus': syncStatus,
+    'scanId': scanId,
+    'doctorId': doctorId,
+    'patientId': patientId,
   };
 
   factory ConsultationModel.fromMap(Map<String, dynamic> map) => ConsultationModel(
-    id: map['id'] ?? '',
-    doctorName: map['doctorName'] ?? '',
-    doctorSpecialization: map['doctorSpecialization'] ?? '',
+    id: map['id'] ?? map['consultation_id'] ?? '',
+    doctorName: map['doctorName'] ?? map['doctor_name'] ?? '',
+    doctorSpecialization: map['doctorSpecialization'] ?? map['specialization'] ?? '',
     doctorInitials: map['doctorInitials'] ?? '',
-    doctorRating: (map['doctorRating'] ?? 4.5).toDouble(),
+    doctorRating: (map['doctorRating'] ?? map['rating'] ?? 4.5).toDouble(),
     doctorLanguages: List<String>.from(map['doctorLanguages'] ?? ['Hindi', 'English']),
-    dateTime: DateTime.tryParse(map['dateTime'] ?? '') ?? DateTime.now(),
+    dateTime: DateTime.tryParse(map['dateTime'] ?? map['created_at'] ?? '') ?? DateTime.now(),
     type: map['type'] ?? 'video',
     status: map['status'] ?? 'upcoming',
     symptoms: map['symptoms'],
     notes: map['notes'],
     isOnline: map['isOnline'] ?? true,
     syncStatus: map['syncStatus'] ?? 'synced',
+    scanId: map['scanId'] ?? map['scan_id'],
+    doctorId: map['doctorId'] ?? map['doctor_id'],
+    patientId: map['patientId'] ?? map['patient_id'],
   );
 }

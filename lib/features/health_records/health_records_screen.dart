@@ -1,326 +1,132 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
-import '../../data/mock_data.dart';
-import '../../shared/widgets/empty_state_widget.dart';
+import '../../data/models/health_record_model.dart';
+import '../../data/services/api_service.dart';
+import '../../data/services/sync_service.dart';
+import '../../shared/providers/auth_provider.dart';
+import '../../config/api_config.dart';
 
-class HealthRecordsScreen extends StatefulWidget {
+class HealthRecordsScreen extends ConsumerStatefulWidget {
   const HealthRecordsScreen({super.key});
-
   @override
-  State<HealthRecordsScreen> createState() => _HealthRecordsScreenState();
+  ConsumerState<HealthRecordsScreen> createState() => _HealthRecordsState();
 }
 
-class _HealthRecordsScreenState extends State<HealthRecordsScreen> {
-  String _selectedFilter = 'All';
-  final _searchController = TextEditingController();
-
-  final List<String> _filters = ['All', 'Consultations', 'Prescriptions', 'AI Scans'];
+class _HealthRecordsState extends ConsumerState<HealthRecordsScreen> {
+  List<HealthRecordModel> _records = [];
+  bool _loading = true;
+  bool _fromCache = false;
 
   @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _loadRecords();
   }
 
-  Color _getRecordColor(String type) {
-    switch (type) {
-      case 'consultation':
-        return AppColors.primary;
-      case 'prescription':
-        return AppColors.secondary;
-      case 'ai_scan':
-        return AppColors.accent;
-      default:
-        return AppColors.textHint;
-    }
-  }
+  Future<void> _loadRecords() async {
+    setState(() => _loading = true);
+    final patientId = ref.read(authProvider)?.id ?? '';
 
-  IconData _getRecordIcon(String type) {
-    switch (type) {
-      case 'consultation':
-        return Icons.videocam_rounded;
-      case 'prescription':
-        return Icons.medication_rounded;
-      case 'ai_scan':
-        return Icons.camera_enhance_rounded;
-      default:
-        return Icons.description_rounded;
+    try {
+      final raw = await ApiService().getPatientRecords(patientId);
+      final records = raw.map((m) =>
+          HealthRecordModel.fromMap(Map<String, dynamic>.from(m as Map))).toList();
+      records.sort((a, b) => b.date.compareTo(a.date));
+      setState(() { _records = records; _loading = false; _fromCache = false; });
+    } catch (_) {
+      // Offline fallback
+      final cached = await SyncService.getCached('health_records');
+      if (cached != null) {
+        final list = (cached as List).map((m) =>
+            HealthRecordModel.fromMap(Map<String, dynamic>.from(m as Map))).toList();
+        list.sort((a, b) => b.date.compareTo(a.date));
+        setState(() { _records = list; _loading = false; _fromCache = true; });
+      } else {
+        setState(() { _loading = false; _fromCache = true; });
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final records = MockData.healthRecords;
-    final filteredRecords = _selectedFilter == 'All'
-        ? records
-        : records.where((r) {
-            switch (_selectedFilter) {
-              case 'Consultations':
-                return r['type'] == 'consultation';
-              case 'Prescriptions':
-                return r['type'] == 'prescription';
-              case 'AI Scans':
-                return r['type'] == 'ai_scan';
-              default:
-                return true;
-            }
-          }).toList();
-
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('Health Records'),
-        backgroundColor: AppColors.background,
+        actions: [IconButton(icon: const Icon(Icons.refresh_rounded), onPressed: _loadRecords)],
       ),
-      body: Column(
-        children: [
-          // Search Bar
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search records...',
-                prefixIcon: const Icon(Icons.search_rounded, color: AppColors.textHint),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(Icons.clear),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() {});
-                        },
-                      )
-                    : null,
-              ),
-              onChanged: (_) => setState(() {}),
-            ),
-          ).animate().fadeIn(duration: 300.ms),
-
-          // Filter Chips
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
-            child: SizedBox(
-              height: 40,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _filters.length,
-                itemBuilder: (context, index) {
-                  final filter = _filters[index];
-                  final isSelected = _selectedFilter == filter;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: ChoiceChip(
-                      label: Text(
-                        filter,
-                        style: AppTextStyles.labelSmall.copyWith(
-                          color: isSelected ? Colors.white : AppColors.textSecondary,
-                        ),
-                      ),
-                      selected: isSelected,
-                      selectedColor: AppColors.primary,
-                      backgroundColor: AppColors.cardBackground,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      onSelected: (_) {
-                        HapticFeedback.lightImpact();
-                        setState(() => _selectedFilter = filter);
-                      },
+      body: Column(children: [
+        if (_fromCache) Container(
+          color: Colors.orange, padding: const EdgeInsets.all(8),
+          child: Row(children: [
+            const Icon(Icons.wifi_off, color: Colors.white, size: 16),
+            const SizedBox(width: 8),
+            const Text('Showing cached records', style: TextStyle(color: Colors.white)),
+          ]),
+        ),
+        Expanded(
+          child: _loading
+              ? const Center(child: CircularProgressIndicator())
+              : _records.isEmpty
+                  ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(Icons.folder_open_rounded, size: 64, color: AppColors.textHint),
+                      const SizedBox(height: 16),
+                      Text('No health records yet', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary)),
+                    ]))
+                  : ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _records.length,
+                      itemBuilder: (_, i) => _recordCard(_records[i], i),
                     ),
-                  );
-                },
-              ),
-            ),
-          ),
+        ),
+      ]),
+    );
+  }
 
-          // Sync pending banner
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColors.warningLight,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.sync_rounded, color: AppColors.warning, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                  '3 records pending sync — will upload when connected',
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.warning,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          // Records Timeline
-          Expanded(
-            child: filteredRecords.isEmpty
-                ? EmptyStateWidget(
-                    icon: Icons.folder_open_rounded,
-                    title: 'No Records Found',
-                    message: 'Your health records will appear here',
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: filteredRecords.length,
-                    itemBuilder: (context, index) {
-                      final record = filteredRecords[index];
-                      final date = record['date'] as DateTime;
-                      final color = _getRecordColor(record['type'] as String);
-                      final isSynced = record['syncStatus'] == 'synced';
-
-                      return IntrinsicHeight(
-                        child: Row(
-                          children: [
-                            // Timeline line
-                            SizedBox(
-                              width: 24,
-                              child: Column(
-                                children: [
-                                  if (index > 0)
-                                    Expanded(
-                                      child: Container(
-                                        width: 2,
-                                        color: color.withValues(alpha: 0.3),
-                                      ),
-                                    ),
-                                  Container(
-                                    width: 12,
-                                    height: 12,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: color,
-                                      border: Border.all(
-                                        color: color.withValues(alpha: 0.3),
-                                        width: 3,
-                                      ),
-                                    ),
-                                  ),
-                                  if (index < filteredRecords.length - 1)
-                                    Expanded(
-                                      child: Container(
-                                        width: 2,
-                                        color: color.withValues(alpha: 0.3),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            // Record Card
-                            Expanded(
-                              child: Container(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: AppColors.cardBackground,
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.shadow,
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                  border: Border(
-                                    left: BorderSide(color: color, width: 3),
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 40,
-                                      height: 40,
-                                      decoration: BoxDecoration(
-                                        color: color.withValues(alpha: 0.1),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Icon(
-                                        _getRecordIcon(record['type'] as String),
-                                        color: color,
-                                        size: 20,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            record['title'] as String,
-                                            style: AppTextStyles.bodyBold.copyWith(fontSize: 15),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            record['subtitle'] as String,
-                                            style: AppTextStyles.caption,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Row(
-                                            children: [
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 8,
-                                                  vertical: 2,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: AppColors.surfaceVariant,
-                                                  borderRadius: BorderRadius.circular(8),
-                                                ),
-                                                child: Text(
-                                                  '${date.day}/${date.month}/${date.year}',
-                                                  style: AppTextStyles.caption.copyWith(fontSize: 12),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Icon(
-                                                isSynced ? Icons.cloud_done : Icons.wifi_off,
-                                                size: 14,
-                                                color: isSynced
-                                                    ? AppColors.success
-                                                    : AppColors.warning,
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const Icon(
-                                      Icons.chevron_right_rounded,
-                                      color: AppColors.textHint,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
-                          .animate()
-                          .fadeIn(
-                            delay: Duration(milliseconds: 100 * index),
-                            duration: 400.ms,
-                          )
-                          .slideX(begin: 0.1);
-                    },
-                  ),
+  Widget _recordCard(HealthRecordModel record, int index) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground, borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: AppColors.shadow, blurRadius: 6, offset: const Offset(0, 2))]),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Container(width: 44, height: 44, decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(14)),
+            child: const Icon(Icons.description_rounded, color: AppColors.primary, size: 24)),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Expanded(child: Text(record.doctorName, style: AppTextStyles.bodyBold.copyWith(fontSize: 14))),
+              if (record.isEncrypted)
+                const Icon(Icons.lock_rounded, size: 16, color: AppColors.textHint),
+            ]),
+            const SizedBox(height: 2),
+            Text('${record.date.day}/${record.date.month}/${record.date.year}',
+              style: AppTextStyles.caption.copyWith(color: AppColors.textHint)),
+          ])),
+        ]),
+        const SizedBox(height: 10),
+        Text(record.diagnosisSummary, style: AppTextStyles.bodyMedium.copyWith(fontSize: 13),
+          maxLines: 2, overflow: TextOverflow.ellipsis),
+        if (record.pdfUrl != null) ...[
+          const SizedBox(height: 10),
+          TextButton.icon(
+            onPressed: () {
+              // Opens download URL in browser; full download to device is future work
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text('PDF: ${ApiConfig.baseHost}${record.pdfUrl}'),
+              ));
+            },
+            icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
+            label: const Text('Download PDF'),
           ),
         ],
-      ),
-    );
+      ]),
+    ).animate().fadeIn(delay: Duration(milliseconds: index * 60), duration: 300.ms);
   }
 }

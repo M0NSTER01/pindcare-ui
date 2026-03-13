@@ -7,6 +7,7 @@ import 'features/home/home_screen.dart';
 import 'features/ai_scan/ai_scan_screen.dart';
 import 'features/ai_scan/analyzing_screen.dart';
 import 'features/ai_scan/diagnosis_result_screen.dart';
+import 'features/ai_scan/symptom_checker_screen.dart';
 import 'features/health_records/health_records_screen.dart';
 import 'features/health_records/record_detail_screen.dart';
 import 'features/medicines/medicines_screen.dart';
@@ -25,6 +26,8 @@ import 'features/doctor/abdm_patient_history_screen.dart';
 import 'features/video_call/video_call_screen.dart';
 import 'features/chat/chat_screens.dart';
 import 'features/map/offline_map_screen.dart';
+import 'features/asha/managed_patients_screen.dart';
+import 'features/pharmacy/pharmacy_stock_screen.dart';
 import 'shared/widgets/main_shell.dart';
 import 'shared/widgets/doctor_shell.dart';
 
@@ -86,11 +89,14 @@ final GoRouter router = GoRouter(
     GoRoute(path: '/ai-scan', pageBuilder: (c, s) => _slidePage(s, const AiScanScreen(), begin: const Offset(0, 1))),
     GoRoute(path: '/ai-scan/analyzing', pageBuilder: (c, s) => _fadePage(s, const AnalyzingScreen())),
     GoRoute(path: '/ai-scan/result', pageBuilder: (c, s) => _slidePage(s, const DiagnosisResultScreen())),
+    GoRoute(path: '/symptom-checker', pageBuilder: (c, s) => _slidePage(s, const SymptomCheckerScreen())),
     GoRoute(path: '/consultation', pageBuilder: (c, s) => _slidePage(s, const ConsultationScreen())),
     GoRoute(path: '/video-call', pageBuilder: (c, s) => _fadePage(s, const VideoCallScreen())),
     GoRoute(path: '/chat', pageBuilder: (c, s) => _slidePage(s, const ChatListScreen())),
     GoRoute(path: '/map', pageBuilder: (c, s) => _slidePage(s, const OfflineMapScreen())),
     GoRoute(path: '/abdm-history', pageBuilder: (c, s) => _slidePage(s, const AbdmPatientHistoryScreen())),
+    GoRoute(path: '/asha/patients', pageBuilder: (c, s) => _slidePage(s, const ManagedPatientsScreen())),
+    GoRoute(path: '/pharmacy/stock', pageBuilder: (c, s) => _slidePage(s, const PharmacyStockScreen())),
     GoRoute(path: '/record/:type', pageBuilder: (c, s) {
       final type = s.pathParameters['type'] ?? 'consultation';
       return _slidePage(s, RecordDetailScreen(recordType: type));

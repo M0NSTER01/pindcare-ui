@@ -12,6 +12,10 @@ class PharmacyModel {
   final double distance; // in km
   final List<MedicineStockModel> medicines;
   final DateTime lastUpdated;
+  // Backend stock-freshness fields
+  final bool isLive;       // pharmacy actively updated in last 5 min
+  final int minutesAgo;    // minutes since last stock update
+  final DateTime? lastSeen; // exact timestamp of last update
 
   PharmacyModel({
     required this.id,
@@ -27,6 +31,9 @@ class PharmacyModel {
     this.distance = 0,
     this.medicines = const [],
     DateTime? lastUpdated,
+    this.isLive = false,
+    this.minutesAgo = 999,
+    this.lastSeen,
   }) : lastUpdated = lastUpdated ?? DateTime.now();
 
   Map<String, dynamic> toMap() => {
@@ -51,17 +58,20 @@ class PharmacyModel {
         type: map['type'] ?? 'private',
         address: map['address'] ?? '',
         lat: (map['lat'] ?? 0.0).toDouble(),
-        lng: (map['lng'] ?? 0.0).toDouble(),
+        lng: (map['lng'] ?? map['lon'] ?? 0.0).toDouble(),
         phone: map['phone'] ?? '',
         hours: map['hours'] ?? '',
-        isOpen: map['isOpen'] ?? true,
+        isOpen: map['isOpen'] ?? map['is_open'] ?? true,
         is24Hours: map['is24Hours'] ?? false,
         distance: (map['distance'] ?? 0.0).toDouble(),
         medicines: (map['medicines'] as List?)
                 ?.map((m) => MedicineStockModel.fromMap(Map<String, dynamic>.from(m)))
                 .toList() ??
             [],
-        lastUpdated: DateTime.tryParse(map['lastUpdated'] ?? '') ?? DateTime.now(),
+        lastUpdated: DateTime.tryParse(map['lastUpdated'] ?? map['last_updated'] ?? '') ?? DateTime.now(),
+        isLive: map['isLive'] ?? map['is_live'] ?? false,
+        minutesAgo: map['minutesAgo'] ?? map['minutes_ago'] ?? 999,
+        lastSeen: DateTime.tryParse(map['lastSeen'] ?? map['last_seen'] ?? ''),
       );
 }
 

@@ -21,6 +21,7 @@ class HiveService {
   static const String medicineListBox = 'medicine_list';
   static const String roadNetworkBox = 'road_network';
   static const String notificationsBox = 'notifications';
+  static const String offlineCacheBox = 'offline_cache'; // delta sync cache
 
   static Future<void> init() async {
     await Hive.initFlutter();
@@ -44,6 +45,7 @@ class HiveService {
     await Hive.openBox(medicineListBox);
     await Hive.openBox(roadNetworkBox);
     await Hive.openBox(notificationsBox);
+    await Hive.openBox(offlineCacheBox);
   }
 
   // Generic CRUD operations

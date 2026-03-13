@@ -15,6 +15,7 @@ class ChatMessageModel {
   final String? memberId;
   final String syncStatus;
   final DateTime timestamp;
+  final String? imageUrl; // backend served image URL for chat images
 
   ChatMessageModel({
     required this.id,
@@ -33,6 +34,7 @@ class ChatMessageModel {
     this.memberId,
     this.syncStatus = 'synced',
     DateTime? timestamp,
+    this.imageUrl,
   }) : timestamp = timestamp ?? DateTime.now();
 
   bool get isText => type == 'text';
@@ -78,6 +80,23 @@ class ChatMessageModel {
         memberId: map['memberId'],
         syncStatus: map['syncStatus'] ?? 'synced',
         timestamp: DateTime.tryParse(map['timestamp'] ?? '') ?? DateTime.now(),
+        imageUrl: map['imageUrl'] ?? map['image_url'],
+      );
+
+  /// Parses a raw backend Socket.IO / REST message payload.
+  factory ChatMessageModel.fromApiMap(Map<String, dynamic> map) => ChatMessageModel(
+        id: map['message_id'] ?? map['id'] ?? '',
+        conversationId: map['consultation_id'] ?? map['conversationId'] ?? '',
+        senderId: map['sender_id'] ?? map['senderId'] ?? '',
+        receiverId: map['receiver_id'] ?? map['receiverId'] ?? '',
+        senderName: map['sender_name'] ?? map['senderName'] ?? '',
+        receiverName: map['receiver_name'] ?? map['receiverName'] ?? '',
+        content: map['message_text'] ?? map['content'] ?? '',
+        type: map['image_url'] != null ? 'image' : (map['type'] ?? 'text'),
+        status: map['status'] ?? 'sent',
+        syncStatus: 'synced',
+        timestamp: DateTime.tryParse(map['timestamp'] ?? map['created_at'] ?? '') ?? DateTime.now(),
+        imageUrl: map['image_url'] ?? map['imageUrl'],
       );
 }
 
