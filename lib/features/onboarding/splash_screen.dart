@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
-
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
@@ -15,9 +15,20 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 3000), () {
-      if (mounted) {
-        context.go('/onboarding');
+    Future.delayed(const Duration(milliseconds: 2000), () {
+      if (!mounted) return;
+      // Check for saved session
+      final box   = Hive.box('user_box');
+      final token = box.get('token');
+      final role  = box.get('role') as String? ?? 'patient';
+      if (token != null && token.toString().isNotEmpty) {
+        // Already logged in — go to the right dashboard
+        switch (role) {
+          case 'doctor':   context.go('/doctor/dashboard'); break;
+          default:         context.go('/home');
+        }
+      } else {
+        context.go('/login');
       }
     });
   }

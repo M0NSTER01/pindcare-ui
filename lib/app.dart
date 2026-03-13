@@ -14,6 +14,7 @@ import 'features/medicines/medicines_screen.dart';
 import 'features/consultation/consultation_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/registration/role_selection_screen.dart';
+import 'features/registration/login_screen.dart';
 import 'features/registration/doctor_registration_screen.dart';
 import 'features/registration/patient_registration_screen.dart';
 import 'features/registration/asha_registration_screen.dart';
@@ -55,6 +56,9 @@ final GoRouter router = GoRouter(
   routes: [
     GoRoute(path: '/', pageBuilder: (c, s) => _fadePage(s, const SplashScreen())),
     GoRoute(path: '/onboarding', pageBuilder: (c, s) => _fadePage(s, const OnboardingScreen())),
+
+    // Auth routes
+    GoRoute(path: '/login', pageBuilder: (c, s) => _fadePage(s, const LoginScreen())),
 
     // Registration routes
     GoRoute(path: '/role-selection', pageBuilder: (c, s) => _fadePage(s, const RoleSelectionScreen())),

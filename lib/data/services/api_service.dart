@@ -56,8 +56,14 @@ class ApiService {
 
   Future<String?> getStoredToken() => _storage.read(key: 'jwt_token');
 
+  /// Directly set token in Dio headers (called after login/register)
+  void setToken(String token) {
+    _dio.options.headers['Authorization'] = token.isNotEmpty ? 'Bearer $token' : null;
+  }
+
   Future<void> logout() async {
     await _storage.delete(key: 'jwt_token');
+    _dio.options.headers.remove('Authorization');
   }
 
   // ── DOCTORS ──────────────────────────────────────────────────────────────

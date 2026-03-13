@@ -113,4 +113,45 @@ class SocketService {
       _socket?.on(event, handler);
 
   void off(String event) => _socket?.off(event);
+
+  // Convenience listeners used by screens
+  void onMessageReceived(Function(Map<String, dynamic>) handler) =>
+      _socket?.on('new_message', (data) => handler(Map<String, dynamic>.from(data as Map)));
+
+  void onTyping(Function(String) handler) =>
+      _socket?.on('typing', (data) => handler(data['user_id']?.toString() ?? ''));
+
+  // ── Call event emitters ───────────────────────────────────────────────────
+
+  void emitCallOffer(String consultationId, String fromUserId, String callType) {
+    _socket?.emit('webrtc_offer', {
+      'consultation_id': consultationId,
+      'from_user_id': fromUserId,
+      'offer': {'type': 'offer', 'sdp': 'placeholder'},
+      'call_type': callType,
+    });
+  }
+
+  void emitEndCall(String consultationId, String userId) {
+    _socket?.emit('end_call', {
+      'consultation_id': consultationId,
+      'user_id': userId,
+    });
+  }
+
+  void emitToggleCallType(String consultationId, String userId, String newType) {
+    _socket?.emit('toggle_call_type', {
+      'consultation_id': consultationId,
+      'user_id': userId,
+      'new_type': newType,
+    });
+  }
+
+  // ── Call event listeners ──────────────────────────────────────────────────
+
+  void onCallAccepted(VoidCallback handler) =>
+      _socket?.on('webrtc_answer', (_) => handler());
+
+  void onCallEnded(VoidCallback handler) =>
+      _socket?.on('end_call', (_) => handler());
 }

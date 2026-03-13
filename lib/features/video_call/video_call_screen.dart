@@ -2,299 +2,237 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_text_styles.dart';
 import '../../data/services/socket_service.dart';
 import '../../shared/providers/auth_provider.dart';
+import '../../shared/providers/consultation_provider.dart';
 
+/// Audio / Video call screen.
+/// Uses Socket.IO for signaling (call offer/answer/end).
+/// Displays a "connecting" UI while waiting for the remote peer.
+///
+/// Pass route extras: {'consultationId': String, 'callType': 'video'|'audio', 'isOutgoing': bool}
 class VideoCallScreen extends ConsumerStatefulWidget {
-  final String? consultationId;
-  final String callType; // 'video' or 'audio'
-  const VideoCallScreen({super.key, this.consultationId, this.callType = 'video'});
-
+  const VideoCallScreen({super.key});
   @override
-  ConsumerState<VideoCallScreen> createState() => _VideoCallState();
+  ConsumerState<VideoCallScreen> createState() => _VideoCallScreenState();
 }
 
-class _VideoCallState extends ConsumerState<VideoCallScreen> {
-  // WebRTC
-  RTCPeerConnection? _pc;
-  MediaStream? _localStream;
-  MediaStream? _remoteStream;
-  final _localRenderer = RTCVideoRenderer();
-  final _remoteRenderer = RTCVideoRenderer();
-
-  bool _isMuted = false;
-  bool _isVideoOff = false;
-  bool _isSpeakerOn = true;
-  bool _callConnected = false;
-  bool _isAudioOnly = false;
-  int _seconds = 0;
-
-  static const _iceServers = {
-    'iceServers': [
-      {'urls': 'stun:stun.l.google.com:19302'},
-      {'urls': 'stun:stun1.l.google.com:19302'},
-    ]
-  };
+class _VideoCallScreenState extends ConsumerState<VideoCallScreen>
+    with TickerProviderStateMixin {
+  bool _micEnabled  = true;
+  bool _speakerOn   = true;
+  bool _isVideo     = true;
+  bool _connected   = false;
+  bool _callEnded   = false;
+  String _status    = 'Calling...';
+  Duration _elapsed = Duration.zero;
+  late final AnimationController _pulseCtrl;
+  final SocketService _socket = SocketService();
 
   @override
   void initState() {
     super.initState();
-    _isAudioOnly = widget.callType == 'audio';
-    _initWebRTC();
-    _startTimer();
-  }
+    _pulseCtrl = AnimationController(vsync: this, duration: const Duration(seconds: 2))
+      ..repeat(reverse: true);
 
-  Future<void> _initWebRTC() async {
-    await _localRenderer.initialize();
-    await _remoteRenderer.initialize();
-
-    // Get local media
-    _localStream = await navigator.mediaDevices.getUserMedia({
-      'audio': true,
-      'video': _isAudioOnly ? false : {'facingMode': 'user'},
-    });
-    _localRenderer.srcObject = _localStream;
-
-    // Create peer connection
-    _pc = await createPeerConnection(_iceServers);
-
-    _localStream!.getTracks().forEach((t) => _pc!.addTrack(t, _localStream!));
-
-    _pc!.onTrack = (event) {
-      if (event.streams.isNotEmpty) {
-        setState(() {
-          _remoteStream = event.streams[0];
-          _remoteRenderer.srcObject = _remoteStream;
-          _callConnected = true;
-        });
-      }
-    };
-
-    _pc!.onIceCandidate = (candidate) {
-      final consId = widget.consultationId ?? '';
-      final userId = ref.read(authProvider)?.id ?? '';
-      SocketService().sendIceCandidate(consId, userId, candidate.toMap());
-    };
-
-    _pc!.onConnectionState = (state) {
-      if (state == RTCPeerConnectionState.RTCPeerConnectionStateFailed &&
-          !_isAudioOnly) {
-        _fallbackToAudio();
-      }
-    };
-
-    // Socket signaling listeners
-    final consId = widget.consultationId ?? '';
-    final userId = ref.read(authProvider)?.id ?? '';
-
-    SocketService().on('webrtc_offer', (data) async {
-      final map = Map<String, dynamic>.from(data as Map);
-      await _pc!.setRemoteDescription(RTCSessionDescription(
-        map['offer']['sdp'], map['offer']['type']));
-      final answer = await _pc!.createAnswer();
-      await _pc!.setLocalDescription(answer);
-      SocketService().sendAnswer(consId, userId, answer.toMap());
+    // Listen for call accepted / ended events
+    _socket.onCallAccepted(() {
+      if (mounted) setState(() { _connected = true; _status = 'Connected'; });
+      _startTimer();
     });
 
-    SocketService().on('webrtc_answer', (data) async {
-      final map = Map<String, dynamic>.from(data as Map);
-      await _pc!.setRemoteDescription(RTCSessionDescription(
-        map['answer']['sdp'], map['answer']['type']));
+    _socket.onCallEnded(() {
+      if (mounted) setState(() { _callEnded = true; _status = 'Call Ended'; });
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) context.pop();
+      });
     });
 
-    SocketService().on('webrtc_ice_candidate', (data) async {
-      final map = Map<String, dynamic>.from(data as Map);
-      final c = map['candidate'];
-      await _pc!.addCandidate(RTCIceCandidate(
-        c['candidate'], c['sdpMid'], c['sdpMLineIndex']));
+    // Emit call offer signal after frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final consultId = ref.read(consultationProvider)?.id.toString() ?? '';
+      final userId    = ref.read(authProvider)?.id ?? '';
+      _socket.emitCallOffer(consultId, userId, _isVideo ? 'video' : 'audio');
     });
-
-    SocketService().on('toggle_call_type', (data) {
-      final map = Map<String, dynamic>.from(data as Map);
-      if (mounted) setState(() => _isAudioOnly = map['new_type'] == 'audio');
-    });
-
-    SocketService().on('end_call', (_) {
-      if (mounted) Navigator.pop(context);
-    });
-
-    // If this side is the caller — create and send offer
-    final offer = await _pc!.createOffer();
-    await _pc!.setLocalDescription(offer);
-    SocketService().sendOffer(consId, userId, offer.toMap(), widget.callType);
-
-    if (mounted) setState(() {});
-  }
-
-  void _fallbackToAudio() {
-    if (!mounted) return;
-    setState(() => _isAudioOnly = true);
-    _localStream?.getVideoTracks().forEach((t) => t.enabled = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Switched to audio only due to poor connection')),
-    );
-  }
-
-  void _startTimer() {
-    Future.doWhile(() async {
-      await Future.delayed(const Duration(seconds: 1));
-      if (!mounted) return false;
-      setState(() => _seconds++);
-      return true;
-    });
-  }
-
-  String get _timerText {
-    final m = (_seconds ~/ 60).toString().padLeft(2, '0');
-    final s = (_seconds % 60).toString().padLeft(2, '0');
-    return '$m:$s';
-  }
-
-  Future<void> _toggleCallType() async {
-    final consId = widget.consultationId ?? '';
-    final userId = ref.read(authProvider)?.id ?? '';
-    final newType = _isAudioOnly ? 'video' : 'audio';
-
-    setState(() => _isAudioOnly = !_isAudioOnly);
-    _localStream?.getVideoTracks().forEach((t) => t.enabled = !_isAudioOnly);
-
-    SocketService().toggleCallType(consId, userId, newType);
-
-    // Renegotiate
-    final offer = await _pc!.createOffer();
-    await _pc!.setLocalDescription(offer);
-    SocketService().sendOffer(consId, userId, offer.toMap(), newType);
-  }
-
-  Future<void> _endCall() async {
-    final consId = widget.consultationId ?? '';
-    final userId = ref.read(authProvider)?.id ?? '';
-    SocketService().endCall(consId, userId);
-    await _dispose();
-    if (mounted) Navigator.pop(context);
-  }
-
-  Future<void> _dispose() async {
-    SocketService().off('webrtc_offer');
-    SocketService().off('webrtc_answer');
-    SocketService().off('webrtc_ice_candidate');
-    SocketService().off('toggle_call_type');
-    SocketService().off('end_call');
-    _localStream?.getTracks().forEach((t) => t.stop());
-    await _localRenderer.dispose();
-    await _remoteRenderer.dispose();
-    await _pc?.close();
   }
 
   @override
   void dispose() {
-    _dispose();
+    _pulseCtrl.dispose();
     super.dispose();
+  }
+
+  int _seconds = 0;
+  void _startTimer() {
+    Future.doWhile(() async {
+      await Future.delayed(const Duration(seconds: 1));
+      if (!mounted || _callEnded) return false;
+      setState(() { _seconds++; _elapsed = Duration(seconds: _seconds); });
+      return true;
+    });
+  }
+
+  String _formatTime(Duration d) =>
+      '${d.inMinutes.toString().padLeft(2, '0')}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
+
+  void _endCall() {
+    HapticFeedback.heavyImpact();
+    final consultId = ref.read(consultationProvider)?.id.toString() ?? '';
+    final userId    = ref.read(authProvider)?.id ?? '';
+    _socket.emitEndCall(consultId, userId);
+    context.pop();
   }
 
   @override
   Widget build(BuildContext context) {
+    final consultation = ref.watch(consultationProvider);
+    final myUser       = ref.watch(authProvider);
+    final peerName     = myUser?.role == 'doctor'
+        ? (consultation?.patientName ?? 'Patient')
+        : (consultation?.doctorName  ?? 'Doctor');
+
     return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(children: [
-        // Remote video (full screen)
-        !_isAudioOnly && _callConnected
-            ? RTCVideoView(_remoteRenderer, objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover)
-            : Container(
-                decoration: BoxDecoration(gradient: LinearGradient(
-                  colors: [Colors.grey[900]!, Colors.grey[800]!],
-                  begin: Alignment.topCenter, end: Alignment.bottomCenter)),
-                child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Container(width: 100, height: 100, decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.1), shape: BoxShape.circle),
-                    child: const Icon(Icons.person_rounded, size: 52, color: Colors.white54)),
-                  const SizedBox(height: 16),
-                  Text(_callConnected ? 'Audio Call' : 'Connecting...',
-                    style: AppTextStyles.bodyBold.copyWith(color: Colors.white)),
-                ]))),
+      backgroundColor: const Color(0xFF0D1B2A),
+      body: SafeArea(
+        child: Stack(children: [
+          // Background gradient
+          Container(decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0D1B2A), Color(0xFF1A3A5C)],
+              begin: Alignment.topCenter, end: Alignment.bottomCenter,
+            ),
+          )),
 
-        // Local video PIP (hidden in audio-only)
-        if (!_isAudioOnly)
-          Positioned(top: 60, right: 16, child: Container(
-            width: 100, height: 140,
-            decoration: BoxDecoration(color: Colors.grey[700], borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 2)),
-            child: ClipRRect(borderRadius: BorderRadius.circular(14),
-              child: _isVideoOff
-                  ? Center(child: Icon(Icons.videocam_off_rounded, color: Colors.white54, size: 32))
-                  : RTCVideoView(_localRenderer, mirror: true)))),
+          Column(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
 
-        // Top bar
-        Positioned(top: 0, left: 0, right: 0, child: Container(
-          padding: EdgeInsets.fromLTRB(20, MediaQuery.of(context).padding.top + 8, 20, 12),
-          decoration: BoxDecoration(gradient: LinearGradient(
-            colors: [Colors.black.withValues(alpha: 0.7), Colors.transparent],
-            begin: Alignment.topCenter, end: Alignment.bottomCenter)),
-          child: Row(children: [
-            GestureDetector(onTap: () => Navigator.pop(context),
-              child: const Icon(Icons.arrow_back_rounded, color: Colors.white)),
-            const Spacer(),
-            Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(color: Colors.red.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
+            // ── Top bar ──────────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.all(20),
               child: Row(children: [
-                Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle)),
-                const SizedBox(width: 6),
-                Text(_timerText, style: AppTextStyles.caption.copyWith(color: Colors.white, fontWeight: FontWeight.w700)),
-              ])),
-            const SizedBox(width: 12),
-            Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(color: AppColors.success.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(12)),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.signal_cellular_alt_rounded, color: AppColors.success, size: 16),
-                const SizedBox(width: 4),
-                Text(_callConnected ? 'Connected' : 'Connecting',
-                  style: AppTextStyles.caption.copyWith(color: AppColors.success, fontWeight: FontWeight.w700)),
-              ])),
-          ]))),
+                IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                  onPressed: () => context.pop(),
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: _connected ? Colors.green.withValues(alpha: 0.2) : Colors.orange.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: _connected ? Colors.green.withValues(alpha: 0.5) : Colors.orange.withValues(alpha: 0.5)),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Container(width: 8, height: 8, decoration: BoxDecoration(
+                      color: _connected ? Colors.green : Colors.orange, shape: BoxShape.circle)),
+                    const SizedBox(width: 6),
+                    Text(_connected ? _formatTime(_elapsed) : _status,
+                      style: AppTextStyles.caption.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
+                  ]),
+                ),
+              ]),
+            ),
 
-        // Bottom controls
-        Positioned(bottom: 0, left: 0, right: 0, child: Container(
-          padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).padding.bottom + 20),
-          decoration: BoxDecoration(gradient: LinearGradient(
-            colors: [Colors.transparent, Colors.black.withValues(alpha: 0.8)],
-            begin: Alignment.topCenter, end: Alignment.bottomCenter)),
-          child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-            _controlBtn(Icons.mic_off_rounded, Icons.mic_rounded, _isMuted, 'Mute', () {
-              setState(() => _isMuted = !_isMuted);
-              _localStream?.getAudioTracks().forEach((t) => t.enabled = !_isMuted);
-            }),
-            _controlBtn(
-              _isAudioOnly ? Icons.videocam_rounded : Icons.videocam_off_rounded,
-              _isAudioOnly ? Icons.videocam_off_rounded : Icons.videocam_rounded,
-              _isAudioOnly, _isAudioOnly ? 'Enable Video' : 'Video Only',
-              _toggleCallType),
-            // End call
-            GestureDetector(onTap: () { HapticFeedback.heavyImpact(); _endCall(); },
-              child: Container(width: 64, height: 64,
-                decoration: BoxDecoration(color: Colors.red, shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(color: Colors.red.withValues(alpha: 0.4), blurRadius: 16)]),
-                child: const Icon(Icons.call_end_rounded, color: Colors.white, size: 30))),
-            _controlBtn(Icons.volume_up_rounded, Icons.volume_off_rounded, _isSpeakerOn, 'Speaker',
-              () => setState(() => _isSpeakerOn = !_isSpeakerOn)),
-            _controlBtn(Icons.flip_camera_android_rounded, Icons.flip_camera_android_rounded, false, 'Flip',
-              () => _localStream?.getVideoTracks().forEach((t) => Helper.switchCamera(t))),
-          ]))),
-      ]),
+            // ── Center avatar + name ──────────────────────────────────────────
+            Column(children: [
+              // Pulse animation
+              AnimatedBuilder(
+                animation: _pulseCtrl,
+                builder: (_, __) => Container(
+                  width: 130 + (_connected ? 0 : _pulseCtrl.value * 20),
+                  height: 130 + (_connected ? 0 : _pulseCtrl.value * 20),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.05 * (1 - _pulseCtrl.value)),
+                  ),
+                  child: Center(child: Container(
+                    width: 120, height: 120,
+                    decoration: BoxDecoration(
+                      gradient: AppColors.primaryGradient, shape: BoxShape.circle,
+                      boxShadow: [BoxShadow(color: AppColors.primary.withValues(alpha: 0.4), blurRadius: 30)],
+                    ),
+                    child: Center(child: Text(
+                      peerName.split(' ').map((n) => n.isNotEmpty ? n[0] : '').take(2).join().toUpperCase(),
+                      style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold),
+                    )),
+                  )),
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              Text(peerName, style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text(_connected ? (_isVideo ? '🎥 Video Call' : '🎙️ Audio Call') : 'Connecting via PindCare...',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 16)),
+            ]),
+
+            // ── Call controls ─────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+              child: Column(children: [
+                // Secondary controls row
+                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  _controlBtn(icon: _micEnabled ? Icons.mic_rounded : Icons.mic_off_rounded,
+                    label: _micEnabled ? 'Mute' : 'Unmute',
+                    color: _micEnabled ? Colors.white24 : Colors.red.withValues(alpha: 0.4),
+                    onTap: () { HapticFeedback.selectionClick(); setState(() => _micEnabled = !_micEnabled); }),
+                  const SizedBox(width: 20),
+                  _controlBtn(icon: _speakerOn ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                    label: _speakerOn ? 'Speaker' : 'Earpiece',
+                    color: Colors.white24,
+                    onTap: () { HapticFeedback.selectionClick(); setState(() => _speakerOn = !_speakerOn); }),
+                  const SizedBox(width: 20),
+                  _controlBtn(icon: _isVideo ? Icons.videocam_rounded : Icons.videocam_off_rounded,
+                    label: _isVideo ? 'Camera' : 'No Camera',
+                    color: Colors.white24,
+                    onTap: () {
+                      HapticFeedback.selectionClick();
+                      setState(() => _isVideo = !_isVideo);
+                      final consultId = ref.read(consultationProvider)?.id.toString() ?? '';
+                      final userId    = ref.read(authProvider)?.id ?? '';
+                      _socket.emitToggleCallType(consultId, userId, _isVideo ? 'video' : 'audio');
+                    }),
+                ]),
+
+                const SizedBox(height: 32),
+
+                // End call button
+                GestureDetector(
+                  onTap: _endCall,
+                  child: Container(
+                    width: 72, height: 72,
+                    decoration: BoxDecoration(
+                      color: Colors.red, shape: BoxShape.circle,
+                      boxShadow: [BoxShadow(color: Colors.red.withValues(alpha: 0.5), blurRadius: 20)],
+                    ),
+                    child: const Icon(Icons.call_end_rounded, color: Colors.white, size: 32),
+                  ).animate().scale(begin: const Offset(0.8, 0.8), duration: 300.ms, curve: Curves.elasticOut),
+                ),
+                const SizedBox(height: 8),
+                Text('End Call', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13)),
+              ]),
+            ),
+          ]),
+        ]),
+      ),
     );
   }
 
-  Widget _controlBtn(IconData activeIcon, IconData inactiveIcon, bool isActive, String label, VoidCallback onTap) {
-    return GestureDetector(onTap: () { HapticFeedback.mediumImpact(); onTap(); },
+  Widget _controlBtn({required IconData icon, required String label, required Color color, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Container(width: 48, height: 48,
-          decoration: BoxDecoration(color: isActive ? Colors.white.withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.1),
-            shape: BoxShape.circle),
-          child: Icon(isActive ? activeIcon : inactiveIcon, color: Colors.white, size: 24)),
-        const SizedBox(height: 4),
-        Text(label, style: AppTextStyles.caption.copyWith(color: Colors.white70, fontSize: 10)),
-      ]));
+        Container(
+          width: 58, height: 58,
+          decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+          child: Icon(icon, color: Colors.white, size: 26),
+        ),
+        const SizedBox(height: 6),
+        Text(label, style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 11)),
+      ]),
+    );
   }
 }
